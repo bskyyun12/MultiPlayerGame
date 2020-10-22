@@ -6,7 +6,7 @@
 // Sets default values
 AMovingPlatform::AMovingPlatform()
 {
- 	// Set this actor to call Tick() every frame.  You can turn this off to improve performance if you don't need it.
+	// Set this actor to call Tick() every frame.  You can turn this off to improve performance if you don't need it.
 	PrimaryActorTick.bCanEverTick = true;
 
 	Mesh = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("MeshComponent"));
@@ -17,8 +17,14 @@ AMovingPlatform::AMovingPlatform()
 void AMovingPlatform::BeginPlay()
 {
 	Super::BeginPlay();
-	
-	StartPosition = GetActorLocation();
+
+	StartLocation = GetActorLocation();
+
+	if (HasAuthority())
+	{
+		SetReplicates(true);
+		SetReplicateMovement(true);
+	}
 }
 
 // Called every frame
@@ -26,6 +32,12 @@ void AMovingPlatform::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
 
-	SetActorLocation(StartPosition + FVector(FMath::Sin(GetWorld()->TimeSeconds * MoveSpeed) * MoveDistance, 0, 0));
+	if (HasAuthority())
+	{		
+		// Smooth PingPong
+		float Alpha = ((-FMath::Cos(PI * GetWorld()->TimeSeconds / TravalTime) + 1) / 2);
+		FVector NewLocation = FMath::Lerp(StartLocation, StartLocation + TargetLocation, Alpha);
+		SetActorLocation(NewLocation);
+	}
 }
 

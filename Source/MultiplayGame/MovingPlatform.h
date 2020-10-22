@@ -29,10 +29,12 @@ private:
 	UStaticMeshComponent* Mesh;
 
 	UPROPERTY(EditAnywhere)
-	float MoveSpeed = 100;
+	float TravalTime = 1;
 
-	UPROPERTY(EditAnywhere)
-	float MoveDistance = 100;
+	UPROPERTY(EditAnywhere, meta = (MakeEditWidget = true))
+	FVector TargetLocation;
 
-	FVector StartPosition;
+	FVector StartLocation;
+
+	float Counter;
 };
