@@ -32,12 +32,26 @@ void AMovingPlatform::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
 
-	if (HasAuthority())
-	{		
-		// Smooth PingPong
-		float Alpha = ((-FMath::Cos(PI * GetWorld()->TimeSeconds / TravalTime) + 1) / 2);
-		FVector NewLocation = FMath::Lerp(StartLocation, StartLocation + TargetLocation, Alpha);
-		SetActorLocation(NewLocation);
+	if (CurrentNumOfTriggers >= RequiredNumOfTriggers)
+	{
+		if (HasAuthority())
+		{
+			Time += DeltaTime;
+			// Smooth PingPong
+			float Alpha = ((-FMath::Cos(PI * Time / TravalTime) + 1) / 2);
+			FVector NewLocation = FMath::Lerp(StartLocation, StartLocation + TargetLocation, Alpha);
+			SetActorLocation(NewLocation);
+		}
 	}
+}
+
+void AMovingPlatform::OnTriggerActivated()
+{
+	CurrentNumOfTriggers++;
+}
+
+void AMovingPlatform::OnTriggerDeactivated()
+{
+	CurrentNumOfTriggers = FMath::Max(0, --CurrentNumOfTriggers);
 }
 

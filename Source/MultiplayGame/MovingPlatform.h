@@ -24,6 +24,9 @@ public:
 	// Called every frame
 	virtual void Tick(float DeltaTime) override;
 
+	void OnTriggerActivated();
+	void OnTriggerDeactivated();
+
 private:
 	UPROPERTY(EditAnywhere)
 	UStaticMeshComponent* Mesh;
@@ -34,7 +37,15 @@ private:
 	UPROPERTY(EditAnywhere, meta = (MakeEditWidget = true))
 	FVector TargetLocation;
 
+	UPROPERTY()
 	FVector StartLocation;
 
-	float Counter;
+	UPROPERTY()
+	float Time = 0;
+
+	UPROPERTY()
+	int CurrentNumOfTriggers = 0;
+
+	UPROPERTY(EditAnywhere)
+	int RequiredNumOfTriggers = 1;
 };
