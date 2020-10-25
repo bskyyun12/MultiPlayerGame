@@ -4,13 +4,15 @@
 
 #include "CoreMinimal.h"
 #include "Engine/GameInstance.h"
+#include "MenuSystem/MenuInterface.h"
+
 #include "MultiplayerGameInstance.generated.h"
 
 /**
  *
  */
 UCLASS()
-class MULTIPLAYGAME_API UMultiplayerGameInstance : public UGameInstance
+class MULTIPLAYGAME_API UMultiplayerGameInstance : public UGameInstance, public IMenuInterface
 {
 	GENERATED_BODY()
 
@@ -19,9 +21,24 @@ public:
 
 	virtual void Init();
 
-	UFUNCTION(Exec)
-	void Host();
+	UFUNCTION(Exec, BlueprintCallable)
+	void LoadInGameMenu();
+
+	UFUNCTION(Exec, BlueprintCallable)
+	void LoadMainMenu(bool bLoadMainMenuLevel) override;
 
 	UFUNCTION(Exec)
-	void Join(const FString& Address);
+	void QuitGame() override;
+
+	UFUNCTION(Exec)
+	void Host() override;
+
+	UFUNCTION(Exec)
+	void Join(const FString& Address) override;
+
+private:
+	TSubclassOf<class UUserWidget> MenuClass;
+	class UMainMenu* Menu;
+
+	TSubclassOf<class UUserWidget> InGameMenuClass;
 };

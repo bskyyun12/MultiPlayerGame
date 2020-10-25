@@ -19,6 +19,7 @@ void AMovingPlatform::BeginPlay()
 	Super::BeginPlay();
 
 	StartLocation = GetActorLocation();
+	TargetLocation = StartLocation + TargetLocation;
 
 	if (HasAuthority())
 	{
@@ -36,10 +37,23 @@ void AMovingPlatform::Tick(float DeltaTime)
 	{
 		if (HasAuthority())
 		{
-			Time += DeltaTime;
-			// Smooth PingPong
-			float Alpha = ((-FMath::Cos(PI * Time / TravalTime) + 1) / 2);
-			FVector NewLocation = FMath::Lerp(StartLocation, StartLocation + TargetLocation, Alpha);
+			// SmmothStep
+			//if (FVector::Dist(GetActorLocation(), TargetLocation) < 0.01)
+			//{
+			//	Time = 0;
+			//	FVector TempStartPos = StartLocation;
+			//	StartLocation = TargetLocation;
+			//	TargetLocation = TempStartPos;
+			//}
+			//Time += DeltaTime / TravalTime;
+			//float Alpha = Time * Time * Time * (Time * (Time * 6 - 15) + 10);
+			//FVector NewLocation = FMath::Lerp(StartLocation, TargetLocation, Alpha);
+			//SetActorLocation(NewLocation);
+
+			// Smooth Infinite
+			Time += DeltaTime / TravalTime;
+			float Alpha = ((-FMath::Cos(PI * Time) + 1) / 2);
+			FVector NewLocation = FMath::Lerp(StartLocation, TargetLocation, Alpha);
 			SetActorLocation(NewLocation);
 		}
 	}
