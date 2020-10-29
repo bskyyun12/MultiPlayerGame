@@ -5,10 +5,14 @@
 
 #include "Engine/Engine.h"
 #include "Blueprint/UserWidget.h"
+#include "OnlineSessionSettings.h"
 
 #include "MenuSystem/MainMenu.h"
 #include "MenuSystem/InGameMenu.h"
 #include "MenuSystem/MenuWidget.h"
+
+const static FName SESSION_NAME = TEXT("My Session Game");
+const static FName SESSION_KEY = TEXT("My Session Key");
 
 UMultiplayerGameInstance::UMultiplayerGameInstance(const FObjectInitializer& ObjectIn)
 {
@@ -30,6 +34,24 @@ UMultiplayerGameInstance::UMultiplayerGameInstance(const FObjectInitializer& Obj
 void UMultiplayerGameInstance::Init()
 {
 	UE_LOG(LogTemp, Warning, TEXT("Found class %s"), *MenuClass->GetName());
+	IOnlineSubsystem* OnlineSubsystem = IOnlineSubsystem::Get();
+	if (!ensure(OnlineSubsystem != nullptr))
+	{
+		return;
+	}
+	UE_LOG(LogTemp, Warning, TEXT("Found OnlineSubsystem: %s"), *OnlineSubsystem->GetSubsystemName().ToString());
+
+	SessionInterface = OnlineSubsystem->GetSessionInterface();
+	if (!ensure(SessionInterface != nullptr))
+	{
+		return;
+	}
+	UE_LOG(LogTemp, Warning, TEXT("Found SessionInterface"));
+
+	SessionInterface->OnCreateSessionCompleteDelegates.AddUObject(this, &UMultiplayerGameInstance::OnCreateSessionComplete);
+	SessionInterface->OnDestroySessionCompleteDelegates.AddUObject(this, &UMultiplayerGameInstance::OnDestroySessionComplete);
+	SessionInterface->OnFindSessionsCompleteDelegates.AddUObject(this, &UMultiplayerGameInstance::OnFindSessionsComplete);
+	SessionInterface->OnJoinSessionCompleteDelegates.AddUObject(this, &UMultiplayerGameInstance::OnJoinSessionComplete);
 }
 
 void UMultiplayerGameInstance::LoadMainMenu(bool bLoadMainMenuLevel)
@@ -51,7 +73,7 @@ void UMultiplayerGameInstance::LoadMainMenu(bool bLoadMainMenuLevel)
 		return;
 	}
 	Engine->AddOnScreenDebugMessage(-1, 5.f, FColor::Cyan, TEXT("LoadMainMenu"));
-	
+
 	if (!ensure(MenuClass != nullptr))
 	{
 		return;
@@ -97,8 +119,107 @@ void UMultiplayerGameInstance::LoadInGameMenu()
 	InGameMenu->SetMenuInterface(this);
 }
 
-void UMultiplayerGameInstance::Host()
+void UMultiplayerGameInstance::Host(const FString& ServerName)
 {
+	if (SessionInterface != nullptr)
+	{
+		auto ExistingSession = SessionInterface->GetNamedSession(SESSION_NAME);
+		if (ExistingSession != nullptr)
+		{
+			UE_LOG(LogTemp, Warning, TEXT("This session (%s) is already existed."), *SESSION_NAME.ToString());
+			UE_LOG(LogTemp, Warning, TEXT("Start DestroySession..."));
+			SessionInterface->DestroySession(SESSION_NAME);
+		}
+		else
+		{
+			CreateSession(ServerName);
+		}
+	}
+}
+
+void UMultiplayerGameInstance::CreateSession(const FString& ServerName)
+{
+	if (SessionInterface != nullptr)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("Start CreateSession..."));
+		FOnlineSessionSettings SessionSettings;
+
+		IOnlineSubsystem* OnlineSubsystem = IOnlineSubsystem::Get();
+		if (OnlineSubsystem->GetSubsystemName().IsEqual(TEXT("NULL")))
+		{
+			UE_LOG(LogTemp, Warning, TEXT("bIsLANMatch: true"));
+			SessionSettings.bIsLANMatch = true;
+		}
+		else
+		{
+			UE_LOG(LogTemp, Warning, TEXT("bIsLANMatch: false"));
+			SessionSettings.bIsLANMatch = false;
+		}
+
+		SessionSettings.NumPublicConnections = 2;
+		SessionSettings.bShouldAdvertise = true;	// display in the session list
+		SessionSettings.bUsesPresence = true;	// true - CreateLobbySession, false - CreateInternetSession (check FOnlineSessionSteam::CreateSession)
+		SessionSettings.Set(SESSION_KEY, ServerName, EOnlineDataAdvertisementType::ViaOnlineServiceAndPing);
+
+		SessionInterface->CreateSession(0, SESSION_NAME, SessionSettings);
+	}
+}
+
+void UMultiplayerGameInstance::JoinWithIP(const FString& Address)
+{
+	//if (Menu != nullptr)
+	//{
+	//	Menu->Teardown();
+	//}
+
+	//UEngine* Engine = GetEngine();
+	//if (!ensure(Engine != nullptr))
+	//{
+	//	return;
+	//}
+	//Engine->AddOnScreenDebugMessage(-1, 5.f, FColor::Cyan, FString::Printf(TEXT("Joinning: %s"), *Address));
+
+	//APlayerController* PlayerController = GetFirstLocalPlayerController();
+	//if (!ensure(PlayerController != nullptr))
+	//{
+	//	return;
+	//}
+	//PlayerController->ClientTravel(Address, ETravelType::TRAVEL_Absolute);
+
+}
+
+void UMultiplayerGameInstance::Join(uint32 Index)
+{
+	if (SessionInterface == nullptr)
+	{
+		return;
+	}
+
+	if (SessionSearch == nullptr)
+	{
+		return;
+	}
+
+	if (Menu != nullptr)
+	{
+		Menu->Teardown();
+	}
+
+	UE_LOG(LogTemp, Warning, TEXT("Start Joinning..."));
+
+	SessionInterface->JoinSession(0, SESSION_NAME, SessionSearch->SearchResults[Index]);
+}
+
+void UMultiplayerGameInstance::OnCreateSessionComplete(FName SessionName, bool bWasSuccessful)
+{
+	if (!bWasSuccessful)
+	{
+		return;
+
+	}
+
+	UE_LOG(LogTemp, Warning, TEXT("OnCreateSessionComplete"));
+
 	if (Menu != nullptr)
 	{
 		Menu->Teardown();
@@ -119,24 +240,87 @@ void UMultiplayerGameInstance::Host()
 	World->ServerTravel("/Game/Maps/MultiplayMap?listen");
 }
 
-void UMultiplayerGameInstance::Join(const FString& Address)
+void UMultiplayerGameInstance::OnDestroySessionComplete(FName SessionName, bool bWasSuccessful)
 {
-	if (Menu != nullptr)
+	if (bWasSuccessful)
 	{
-		Menu->Teardown();
+		UE_LOG(LogTemp, Warning, TEXT("OnDestroySessionComplete. Create a new Session"));
+		CreateSession("Gwang's game");
+	}
+}
+
+void UMultiplayerGameInstance::OnJoinSessionComplete(FName SessionName, EOnJoinSessionCompleteResult::Type Result)
+{
+	UE_LOG(LogTemp, Warning, TEXT("OnJoinSessionComplete. Result: %d"), Result);
+	if (SessionInterface == nullptr)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("SessionInterface is null"));
+		return;
 	}
 
-	UEngine* Engine = GetEngine();
-	if (!ensure(Engine != nullptr))
+	FString Address;
+	if (!SessionInterface->GetResolvedConnectString(SessionName, Address))
 	{
-		return;
-	}	
-	Engine->AddOnScreenDebugMessage(-1, 5.f, FColor::Cyan, FString::Printf(TEXT("Joinning: %s"), *Address));
+		UE_LOG(LogTemp, Warning, TEXT("GetResolvedConnectString failed."));
+	}
 
 	APlayerController* PlayerController = GetFirstLocalPlayerController();
-	if (!ensure(PlayerController !=nullptr))
+	if (!ensure(PlayerController != nullptr))
 	{
 		return;
 	}
+	UE_LOG(LogTemp, Warning, TEXT("Joinning: %s"), *Address);
 	PlayerController->ClientTravel(Address, ETravelType::TRAVEL_Absolute);
+}
+
+void UMultiplayerGameInstance::RefreshServerList()
+{
+	SessionSearch = MakeShareable(new FOnlineSessionSearch());
+	if (SessionSearch != nullptr)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("Start FindSessions..."));
+		SessionSearch->bIsLanQuery = false;
+		SessionSearch->MaxSearchResults = 100;
+		SessionSearch->QuerySettings.Set(SEARCH_PRESENCE, true, EOnlineComparisonOp::Equals);
+
+		SessionInterface->FindSessions(0, SessionSearch.ToSharedRef());
+	}
+}
+
+void UMultiplayerGameInstance::OnFindSessionsComplete(bool bWasSuccessful)
+{
+	if (bWasSuccessful && SessionSearch != nullptr)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("OnFindSessionsComplete"));
+		TArray<FServerData> ServerNames;
+		for (FOnlineSessionSearchResult& Result : SessionSearch->SearchResults)
+		{
+			FString Display = "";
+			UE_LOG(LogTemp, Warning, TEXT("Session: %s."), *Result.GetSessionIdStr());
+
+			FServerData Data;
+			Data.SessionID = Result.GetSessionIdStr();
+			Data.MaxPlayers = Result.Session.SessionSettings.NumPublicConnections;
+			Data.CurrentPlayers = Data.MaxPlayers - Result.Session.NumOpenPublicConnections;
+			Data.HostUserName = Result.Session.OwningUserName;
+
+			FString ServerName;
+			if (Result.Session.SessionSettings.Get(SESSION_KEY, ServerName))
+			{
+				UE_LOG(LogTemp, Warning, TEXT("Data found in settings: %s."), *ServerName);
+				Data.SessionID = ServerName;
+			}
+			else
+			{
+				UE_LOG(LogTemp, Warning, TEXT("Didn't get expected data"));
+			}
+
+			ServerNames.Add(Data);
+		}
+
+		if (Menu != nullptr)
+		{
+			Menu->SetServerList(ServerNames);
+		}
+	}
 }

@@ -4,8 +4,10 @@
 
 #include "CoreMinimal.h"
 #include "Engine/GameInstance.h"
-#include "MenuSystem/MenuInterface.h"
+#include "OnlineSubsystem.h"
+#include "Interfaces/OnlineSessionInterface.h"
 
+#include "MenuSystem/MenuInterface.h"
 #include "MultiplayerGameInstance.generated.h"
 
 /**
@@ -31,14 +33,31 @@ public:
 	void QuitGame() override;
 
 	UFUNCTION(Exec)
-	void Host() override;
+	void Host(const FString& ServerName) override;
 
 	UFUNCTION(Exec)
-	void Join(const FString& Address) override;
+	void RefreshServerList() override;
+
+	UFUNCTION(Exec)
+	void JoinWithIP(const FString& Address) override;
+
+	UFUNCTION(Exec)
+	void Join(uint32 Index) override;
+
+private:
+	void OnCreateSessionComplete(FName SessionName, bool bWasSuccessful);
+	void OnDestroySessionComplete(FName SessionName, bool bWasSuccessful);
+	void OnFindSessionsComplete(bool bWasSuccessful);
+	void CreateSession(const FString& ServerName);
+	void OnJoinSessionComplete(FName SessionName, EOnJoinSessionCompleteResult::Type Result);
 
 private:
 	TSubclassOf<class UUserWidget> MenuClass;
 	class UMainMenu* Menu;
 
 	TSubclassOf<class UUserWidget> InGameMenuClass;
+
+	IOnlineSessionPtr SessionInterface;
+
+	TSharedPtr<class FOnlineSessionSearch> SessionSearch;
 };
