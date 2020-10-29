@@ -237,7 +237,7 @@ void UMultiplayerGameInstance::OnCreateSessionComplete(FName SessionName, bool b
 	{
 		return;
 	}
-	World->ServerTravel("/Game/Maps/MultiplayMap?listen");
+	World->ServerTravel(LOBBY_URL);
 }
 
 void UMultiplayerGameInstance::OnDestroySessionComplete(FName SessionName, bool bWasSuccessful)

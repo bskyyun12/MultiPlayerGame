@@ -52,6 +52,8 @@ private:
 	void OnJoinSessionComplete(FName SessionName, EOnJoinSessionCompleteResult::Type Result);
 
 private:
+	const FString& LOBBY_URL = TEXT("/Game/Maps/Lobby?listen");
+
 	TSubclassOf<class UUserWidget> MenuClass;
 	class UMainMenu* Menu;
 

@@ -33,42 +33,48 @@ bool UMainMenu::Initialize()
 	{
 		return false;
 	}
-	QuitButton->OnClicked.AddDynamic(this, &UMainMenu::OnQuitButtonClicked);
+	QuitButton->OnClicked.AddDynamic(this, &UMainMenu::QuitGame);
 
-	if (!ensure(HostButton != nullptr))
+	if (!ensure(HostMenuButton != nullptr))
 	{
 		return false;
 	}
-	HostButton->OnClicked.AddDynamic(this, &UMainMenu::OnHostButtonClicked);
+	HostMenuButton->OnClicked.AddDynamic(this, &UMainMenu::OpenHostMenu);
 
-	if (!ensure(JoinButton != nullptr))
+	if (!ensure(JoinMenuButton != nullptr))
 	{
 		return false;
 	}
-	JoinButton->OnClicked.AddDynamic(this, &UMainMenu::OnJoinButtonClicked);
+	JoinMenuButton->OnClicked.AddDynamic(this, &UMainMenu::OpenJoinMenu);
 
-	if (!ensure(JoinGameButton != nullptr))
+	if (!ensure(JoinServerButton != nullptr))
 	{
 		return false;
 	}
-	JoinGameButton->OnClicked.AddDynamic(this, &UMainMenu::OnJoinGameButtonClicked);
+	JoinServerButton->OnClicked.AddDynamic(this, &UMainMenu::JoinServer);
 
-	if (!ensure(CancelButton != nullptr))
+	if (!ensure(BackButtonInJoinMenu != nullptr))
 	{
 		return false;
 	}
-	CancelButton->OnClicked.AddDynamic(this, &UMainMenu::OnCancelButtonClicked);
+	BackButtonInJoinMenu->OnClicked.AddDynamic(this, &UMainMenu::OpenMainMenu);
 
-	if (!ensure(HostButton_HostMenu != nullptr))
+	if (!ensure(HostServerButton != nullptr))
 	{
 		return false;
 	}
-	HostButton_HostMenu->OnClicked.AddDynamic(this, &UMainMenu::OnHostButton_HostMenuClicked);
+	HostServerButton->OnClicked.AddDynamic(this, &UMainMenu::HostServer);
+	
+	if (!ensure(BackButtonInHostMenu != nullptr))
+	{
+		return false;
+	}
+	BackButtonInHostMenu->OnClicked.AddDynamic(this, &UMainMenu::OpenMainMenu);
 
 	return true;
 }
 
-void UMainMenu::OnQuitButtonClicked()
+void UMainMenu::QuitGame()
 {
 	if (MenuInterface != nullptr)
 	{
@@ -76,14 +82,14 @@ void UMainMenu::OnQuitButtonClicked()
 	}
 }
 
-void UMainMenu::OnHostButtonClicked()
+void UMainMenu::OpenHostMenu()
 {
 	UE_LOG(LogTemp, Warning, TEXT("Host Button Clicked!"));
 
 	MenuSwitcher->SetActiveWidget(HostMenu);
 }
 
-void UMainMenu::OnHostButton_HostMenuClicked()
+void UMainMenu::HostServer()
 {
 	if (MenuInterface != nullptr)
 	{
@@ -99,7 +105,7 @@ void UMainMenu::OnHostButton_HostMenuClicked()
 	}
 }
 
-void UMainMenu::OnJoinButtonClicked()
+void UMainMenu::OpenJoinMenu()
 {
 	if (!ensure(MenuSwitcher != nullptr))
 	{
@@ -148,7 +154,7 @@ void UMainMenu::SetSelectIndex(uint32 Index)
 	SelectedIndex = Index;
 }
 
-void UMainMenu::OnJoinGameButtonClicked()
+void UMainMenu::JoinServer()
 {
 	if (SelectedIndex.IsSet())
 	{
@@ -175,7 +181,7 @@ void UMainMenu::OnJoinGameButtonClicked()
 	//}
 }
 
-void UMainMenu::OnCancelButtonClicked()
+void UMainMenu::OpenMainMenu()
 {
 	if (!ensure(MenuSwitcher != nullptr))
 	{

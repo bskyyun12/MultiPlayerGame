@@ -42,10 +42,10 @@ private:
 	class UButton* QuitButton;
 
 	UPROPERTY(meta = (BindWidget))
-	class UButton* HostButton;
+	class UButton* HostMenuButton;
 
 	UPROPERTY(meta = (BindWidget))
-	class UButton* JoinButton;
+	class UButton* JoinMenuButton;
 
 	UPROPERTY(meta = (BindWidget))
 	class UWidgetSwitcher* MenuSwitcher;
@@ -59,10 +59,10 @@ private:
 	class UWidget* JoinMenu;
 
 	UPROPERTY(meta = (BindWidget))
-	class UButton* JoinGameButton;
+	class UButton* JoinServerButton;
 
 	UPROPERTY(meta = (BindWidget))
-	class UButton* CancelButton;
+	class UButton* BackButtonInJoinMenu;
 
 	UPROPERTY(meta = (BindWidget))
 	class UEditableTextBox* IPAdress;
@@ -76,26 +76,30 @@ private:
 	class UEditableTextBox* ServerName;
 
 	UPROPERTY(meta = (BindWidget))
-	class UButton* HostButton_HostMenu;
+	class UButton* HostServerButton;
+
+	UPROPERTY(meta = (BindWidget))
+	class UButton* BackButtonInHostMenu;
 #pragma endregion HostMenu
 
 	UFUNCTION()
-	void OnQuitButtonClicked();
+	void QuitGame();
 
 	UFUNCTION()
-	void OnHostButtonClicked();
+	void OpenHostMenu();
 
 	UFUNCTION()
-	void OnJoinButtonClicked();
+	void HostServer();
 
 	UFUNCTION()
-	void OnJoinGameButtonClicked();
+	void OpenJoinMenu();
 
 	UFUNCTION()
-	void OnCancelButtonClicked();
+	void OpenMainMenu();
 
 	UFUNCTION()
-	void OnHostButton_HostMenuClicked();
+	void JoinServer();
+
 
 	UPROPERTY(meta = (BindWidget))
 	class UPanelWidget* ServerList;
