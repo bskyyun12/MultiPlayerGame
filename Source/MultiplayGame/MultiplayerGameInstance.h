@@ -44,6 +44,8 @@ public:
 	UFUNCTION(Exec)
 	void Join(uint32 Index) override;
 
+	void StartSession();
+
 private:
 	void OnCreateSessionComplete(FName SessionName, bool bWasSuccessful);
 	void OnDestroySessionComplete(FName SessionName, bool bWasSuccessful);

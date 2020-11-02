@@ -11,7 +11,6 @@
 #include "MenuSystem/InGameMenu.h"
 #include "MenuSystem/MenuWidget.h"
 
-const static FName SESSION_NAME = TEXT("My Session Game");
 const static FName SESSION_KEY = TEXT("My Session Key");
 
 UMultiplayerGameInstance::UMultiplayerGameInstance(const FObjectInitializer& ObjectIn)
@@ -123,12 +122,12 @@ void UMultiplayerGameInstance::Host(const FString& ServerName)
 {
 	if (SessionInterface != nullptr)
 	{
-		auto ExistingSession = SessionInterface->GetNamedSession(SESSION_NAME);
+		auto ExistingSession = SessionInterface->GetNamedSession(NAME_GameSession);
 		if (ExistingSession != nullptr)
 		{
-			UE_LOG(LogTemp, Warning, TEXT("This session (%s) is already existed."), *SESSION_NAME.ToString());
+			UE_LOG(LogTemp, Warning, TEXT("This session (%s) is already existed."), *ExistingSession->SessionName.ToString());
 			UE_LOG(LogTemp, Warning, TEXT("Start DestroySession..."));
-			SessionInterface->DestroySession(SESSION_NAME);
+			SessionInterface->DestroySession(NAME_GameSession);
 		}
 		else
 		{
@@ -156,12 +155,12 @@ void UMultiplayerGameInstance::CreateSession(const FString& ServerName)
 			SessionSettings.bIsLANMatch = false;
 		}
 
-		SessionSettings.NumPublicConnections = 2;
+		SessionSettings.NumPublicConnections = 4;
 		SessionSettings.bShouldAdvertise = true;	// display in the session list
 		SessionSettings.bUsesPresence = true;	// true - CreateLobbySession, false - CreateInternetSession (check FOnlineSessionSteam::CreateSession)
 		SessionSettings.Set(SESSION_KEY, ServerName, EOnlineDataAdvertisementType::ViaOnlineServiceAndPing);
 
-		SessionInterface->CreateSession(0, SESSION_NAME, SessionSettings);
+		SessionInterface->CreateSession(0, NAME_GameSession, SessionSettings);
 	}
 }
 
@@ -207,7 +206,15 @@ void UMultiplayerGameInstance::Join(uint32 Index)
 
 	UE_LOG(LogTemp, Warning, TEXT("Start Joinning..."));
 
-	SessionInterface->JoinSession(0, SESSION_NAME, SessionSearch->SearchResults[Index]);
+	SessionInterface->JoinSession(0, NAME_GameSession, SessionSearch->SearchResults[Index]);
+}
+
+void UMultiplayerGameInstance::StartSession()
+{
+	if (SessionInterface != nullptr)
+	{
+		SessionInterface->StartSession(NAME_GameSession);	// So It's closed to join
+	}
 }
 
 void UMultiplayerGameInstance::OnCreateSessionComplete(FName SessionName, bool bWasSuccessful)

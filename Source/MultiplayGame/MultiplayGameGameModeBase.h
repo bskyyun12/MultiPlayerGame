@@ -14,4 +14,6 @@ class MULTIPLAYGAME_API AMultiplayGameGameModeBase : public AGameModeBase
 {
 	GENERATED_BODY()
 	
+public:
+	AMultiplayGameGameModeBase();
 };
