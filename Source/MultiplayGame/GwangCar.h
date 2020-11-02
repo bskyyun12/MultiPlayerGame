@@ -6,23 +6,9 @@
 #include "GameFramework/Pawn.h"
 
 #include "GwangCarMovementComponent.h"
+#include "GwangCarMoveReplicationComponent.h"
 
 #include "GwangCar.generated.h"
-
-USTRUCT()
-struct FVehicleState
-{
-	GENERATED_USTRUCT_BODY()
-
-	UPROPERTY()
-	FTransform Transform;
-
-	UPROPERTY()
-	FVector Velocity;
-
-	UPROPERTY()
-	FVehicleMove LastMove;	
-};
 
 UCLASS()
 class MULTIPLAYGAME_API AGwangCar : public APawn
@@ -48,26 +34,12 @@ public:
 
 private:
 	
-	UPROPERTY(ReplicatedUsing = OnRep_ServerState)
-	FVehicleState ServerState;
-
-	UFUNCTION()
-	void OnRep_ServerState();
-
-	TArray<FVehicleMove> UnacknowledgedMoves;
-
-private:
-	
-	void ClearUnacknowledgedMoves(FVehicleMove LastMove);
-
-	UFUNCTION(Server, Reliable, WithValidation)
-	void Server_SendMove(FVehicleMove Move);
-	void Server_SendMove_Implementation(FVehicleMove Move);
-	bool Server_SendMove_Validate(FVehicleMove Move);
-
 	void Client_MoveForward(float Value);
 	void Client_MoveRight(float Value);
 
-	UPROPERTY(EditAnywhere)
+	UPROPERTY(VisibleAnywhere)
 	UGwangCarMovementComponent* MovementComponent;
+
+	UPROPERTY(VisibleAnywhere)
+	UGwangCarMoveReplicationComponent* MoveReplicationComponent;
 };
