@@ -21,7 +21,7 @@ void UGwangCarMoveReplicationComponent::BeginPlay()
 	Super::BeginPlay();
 
 	// ...
-	
+
 	MovementComponent = GetOwner()->FindComponentByClass<UGwangCarMovementComponent>();
 }
 
@@ -38,24 +38,22 @@ void UGwangCarMoveReplicationComponent::TickComponent(float DeltaTime, ELevelTic
 
 	// ...
 
+	FVehicleMove LastMove = MovementComponent->GetLastMove();
+
 	if (GetOwnerRole() == ROLE_AutonomousProxy)
 	{
-		FVehicleMove Move = MovementComponent->CreateMove(DeltaTime);
-		MovementComponent->SimulateMove(Move);
-
-		UnacknowledgedMoves.Add(Move);
-		Server_SendMove(Move);
+		UnacknowledgedMoves.Add(LastMove);
+		Server_SendMove(LastMove);
 	}
 
 	if (GetOwnerRole() == ROLE_Authority && GetOwner()->GetRemoteRole() == ROLE_SimulatedProxy)
 	{
-		FVehicleMove Move = MovementComponent->CreateMove(DeltaTime);
-		Server_SendMove(Move);
+		UpdateServerState(LastMove);
 	}
 
 	if (GetOwnerRole() == ROLE_SimulatedProxy)
 	{
-		MovementComponent->SimulateMove(ServerState.LastMove);
+		ClientTick(DeltaTime);
 	}
 }
 
@@ -75,10 +73,12 @@ void UGwangCarMoveReplicationComponent::ClearUnacknowledgedMoves(FVehicleMove La
 
 void UGwangCarMoveReplicationComponent::Server_SendMove_Implementation(FVehicleMove Move)
 {
+	if (MovementComponent == nullptr)
+	{
+		return;
+	}
 	MovementComponent->SimulateMove(Move);
-	ServerState.LastMove = Move;
-	ServerState.Transform = GetOwner()->GetActorTransform();
-	ServerState.Velocity = MovementComponent->GetVelocity();
+	UpdateServerState(Move);
 }
 
 bool UGwangCarMoveReplicationComponent::Server_SendMove_Validate(FVehicleMove Move)
@@ -86,14 +86,78 @@ bool UGwangCarMoveReplicationComponent::Server_SendMove_Validate(FVehicleMove Mo
 	return true;
 }
 
-void UGwangCarMoveReplicationComponent::OnRep_ServerState()
+void UGwangCarMoveReplicationComponent::UpdateServerState(const FVehicleMove& Move)
 {
-	GetOwner()->SetActorTransform(ServerState.Transform);
-	if (MovementComponent == nullptr)
+	ServerState.LastMove = Move;
+	ServerState.Transform = GetOwner()->GetActorTransform();
+	ServerState.Velocity = MovementComponent->GetVelocity();
+}
+
+void UGwangCarMoveReplicationComponent::ClientTick(float DeltaTime)
+{
+	//MovementComponent->SimulateMove(ServerState.LastMove);
+	ClientTimeSinceUpdate += DeltaTime;
+
+	if (ClientTimeBetweenLastUpdates < KINDA_SMALL_NUMBER)
 	{
-		UE_LOG(LogTemp, Warning, TEXT("MovementComponent is nullptr"));
 		return;
 	}
+
+	if (MovementComponent == nullptr)
+	{
+		return;
+	}
+
+	
+	// Slope = Derivative = DeltaLocation / DeltaAlpha
+	// Velocity = DeltaLocation / DeltaTime
+	// DeltaAlpha = DeltaTime / TimeBetweenLastUpdates
+	// Slope = Derivative = Velocity * TimeBetweenLastUpdates;
+
+	float Alpha = ClientTimeSinceUpdate / ClientTimeBetweenLastUpdates;
+	
+	FVector StartLocation = ClientStartTransform.GetLocation();
+	FVector TargetLocation = ServerState.Transform.GetLocation();
+
+	float VelocityToDerivative = ClientTimeBetweenLastUpdates * 100; // x100 to convert meter to centimeter
+	FVector StartDerivative = ClientStartVelocity * VelocityToDerivative;
+	FVector TargetDerivative = ServerState.Velocity * VelocityToDerivative;
+
+	FVector NewLocation = FMath::CubicInterp(StartLocation, StartDerivative, TargetLocation, TargetDerivative, Alpha);
+	GetOwner()->SetActorLocation(NewLocation);
+
+	FVector NewDerivative = FMath::CubicInterpDerivative(StartLocation, StartDerivative, TargetLocation, TargetDerivative, Alpha);
+	FVector NewVelocity = NewDerivative / VelocityToDerivative;
+	MovementComponent->SetVelocity(NewVelocity);
+
+	FQuat StartRotation = ClientStartTransform.GetRotation();
+	FQuat TargetRotation = ServerState.Transform.GetRotation();
+	FQuat NewRotation = FQuat::Slerp(StartRotation, TargetRotation, Alpha);
+	GetOwner()->SetActorRotation(NewRotation);
+}
+
+void UGwangCarMoveReplicationComponent::OnRep_ServerState()
+{
+	switch (GetOwnerRole())
+	{
+	case ROLE_AutonomousProxy:
+		AutonomousProxy_OnRep_ServerState();
+		break;
+	case ROLE_SimulatedProxy:
+		SimulatedProxy_OnRep_ServerState();
+		break;
+	default:
+		break;
+	}
+}
+
+void UGwangCarMoveReplicationComponent::AutonomousProxy_OnRep_ServerState()
+{
+	if (MovementComponent == nullptr)
+	{
+		return;
+	}
+	GetOwner()->SetActorTransform(ServerState.Transform);
 	MovementComponent->SetVelocity(ServerState.Velocity);
 
 	ClearUnacknowledgedMoves(ServerState.LastMove);
@@ -102,4 +166,16 @@ void UGwangCarMoveReplicationComponent::OnRep_ServerState()
 	{
 		MovementComponent->SimulateMove(Move);
 	}
+}
+
+void UGwangCarMoveReplicationComponent::SimulatedProxy_OnRep_ServerState()
+{
+	if (MovementComponent == nullptr)
+	{
+		return;
+	}
+	ClientTimeBetweenLastUpdates = ClientTimeSinceUpdate;
+	ClientTimeSinceUpdate = 0;
+	ClientStartTransform = GetOwner()->GetActorTransform();
+	ClientStartVelocity = MovementComponent->GetVelocity();
 }

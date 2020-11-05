@@ -2,6 +2,7 @@
 
 
 #include "GwangCarMovementComponent.h"
+#include <DrawDebugHelpers.h>
 
 // Sets default values for this component's properties
 UGwangCarMovementComponent::UGwangCarMovementComponent()
@@ -19,7 +20,7 @@ void UGwangCarMovementComponent::BeginPlay()
 	Super::BeginPlay();
 
 	// ...
-	
+
 }
 
 // Called every frame
@@ -28,6 +29,12 @@ void UGwangCarMovementComponent::TickComponent(float DeltaTime, ELevelTick TickT
 	Super::TickComponent(DeltaTime, TickType, ThisTickFunction);
 
 	// ...
+
+	if (GetOwnerRole() == ROLE_AutonomousProxy || GetOwner()->GetRemoteRole() == ROLE_SimulatedProxy)
+	{
+		LastMove = CreateMove(DeltaTime);
+		SimulateMove(LastMove);
+	}
 }
 
 FVehicleMove UGwangCarMovementComponent::CreateMove(float DeltaTime)
@@ -68,85 +75,122 @@ void UGwangCarMovementComponent::ApplyRotation(float DeltaTime, float InSteering
 void UGwangCarMovementComponent::UpdateLocationFromVelocity(float DeltaTime)
 {
 	FVector DeltaX = Velocity * DeltaTime * 100; // 100 -> convert meter to centimeter
+
 	FHitResult Hit;
 	GetOwner()->AddActorWorldOffset(DeltaX, true, &Hit);
 	if (Hit.IsValidBlockingHit())
 	{
-		Velocity = FVector::ZeroVector;
-
-#pragma region Test Stuff
-		//AGwangCar* AnotherCar = Cast<AGwangCar>(Hit.Actor);
-		//if (AnotherCar != nullptr)
-		//{
-		//	FVector u1 = Velocity;
-		//	float m1 = MassInKilo;
-
-		//	FVector u2 = AnotherCar->GetVehicleMovementComponent()->GetVelocity();
-		//	float m2 = AnotherCar->GetVehicleMovementComponent()->GetMass();
-
-		//	FVector v1 = (u1 * (m1 - m2)) / (m1 + m2) + (2 * m2 * u2) / (m1 + m2);
-		//	FVector v2 = (2 * m1 * u1) / (m1 + m2) + (u2 * (m2 - m1)) / (m1 + m2);
-
-		//	Velocity = v1;
-		//	AnotherCar->GetVehicleMovementComponent()->SetVelocity(v2);
-		//}
-
-		//FVector v1i = Velocity;
-		//float m1 = MassInKilo;
-		//float θ1 = acos(FVector::DotProduct(FVector::ForwardVector, v1i.GetSafeNormal()));
-		//UE_LOG(LogTemp, Warning, TEXT("θ1: %f"), θ1 * 180 / PI);
-		//UE_LOG(LogTemp, Warning, TEXT("v1: %s"), *v1i.ToString());
-		//UE_LOG(LogTemp, Warning, TEXT("m1: %f"), m1);
-
-		//FVector v2i = Hit.GetActor()->GetActorForwardVector();
-		//float m2 = Hit.Component->GetMass();
-		//float θ2 = acos(FVector::DotProduct(FVector::ForwardVector, v2i.GetSafeNormal()));
-		//UE_LOG(LogTemp, Warning, TEXT("v2: %s"), *v2i.ToString());
-		//UE_LOG(LogTemp, Warning, TEXT("m2: %f"), m2);
-
-		//float φ = acos(FVector::DotProduct(FVector::ForwardVector, (Hit.Location - GetActorLocation()).GetSafeNormal()));
-
-		//θ1 = θ1 * 180 / PI;
-		//θ2 = θ2 * 180 / PI;
-		//φ = φ * 180 / PI;
-		//UE_LOG(LogTemp, Warning, TEXT("θ1: %f"), θ1);
-		//UE_LOG(LogTemp, Warning, TEXT("θ2: %f"), θ2);
-		//UE_LOG(LogTemp, Warning, TEXT("φ: %f"), φ);
-
-		//// find the velocities in the new coordinate system
-		//FVector v1xr = v1i * FMath::Cos(θ1 - φ);
-		//FVector v1yr = v1i * FMath::Sin(θ1 - φ);
-		//FVector v2xr = v2i * FMath::Cos(θ2 - φ);
-		//FVector v2yr = v2i * FMath::Sin(θ2 - φ);
-
-		//// find the final velocities in the normal reference frame
-		//FVector v1fxr = ((m1 - m2) * v1xr + (m2 + m2) * v2xr) / (m1 + m2);
-		//FVector v2fxr = ((m1 + m1) * v1xr + (m2 - m1) * v2xr) / (m1 + m2);
-		//// the y velocities will not be changed
-		//FVector v1fyr = v1yr;
-		//FVector v2fyr = v2yr;
-
-		//// convert back to the standard x,y coordinates
-		//FVector v1fx = v1fxr * FMath::Cos(φ) + v1fyr * FMath::Cos(φ + PI / 2);
-		//FVector v1fy = v1fxr * FMath::Sin(φ) + v1fyr * FMath::Sin(φ + PI / 2);
-
-		//FVector v2fx = v2fxr * FMath::Cos(φ) + v2fyr * FMath::Cos(φ + PI / 2);
-		//FVector v2fy = v2fxr * FMath::Sin(φ) + v2fyr * FMath::Sin(φ + PI / 2);
-
-		//Velocity = v1fx + v1fy;
-		//UE_LOG(LogTemp, Warning, TEXT("v1f: %s"), *Velocity.ToString());
-#pragma endregion
-
+		HandleCollision(Hit);
 	}
 }
 
-FVector UGwangCarMovementComponent::GetAirResistance()
+void UGwangCarMovementComponent::HandleCollision(FHitResult& Hit)
+{
+	AActor* HitActor = Hit.GetActor();
+	if (HitActor == nullptr)
+	{
+		return;
+	}
+
+	FVector V1i = Velocity;
+	float M1 = MassInKilo;
+
+	UGwangCarMovementComponent* MoveComp = nullptr;
+	MoveComp = HitActor->FindComponentByClass<UGwangCarMovementComponent>();
+	FVector V2i = MoveComp != nullptr ? MoveComp->GetVelocity() : HitActor->GetVelocity();
+	float M2 = 99999;
+	if (MoveComp != nullptr)
+	{
+		M2 = MoveComp->GetMass();
+	}
+	else if (HitActor->IsRootComponentMovable())
+	{
+		M2 = Hit.Component->GetMass();
+	}
+
+	// this vehicle
+	FVector HitDir1 = GetOwner()->GetActorLocation() - Hit.ImpactPoint;
+	HitDir1.Z = 0;
+	FVector V1f = V1i - ((M2 + M2) / (M1 + M2)) * FVector::DotProduct((V1i - V2i), HitDir1) / (HitDir1.Size() * HitDir1.Size()) * HitDir1;
+	this->Velocity = V1f * this->Elast;
+
+	// other
+	FVector HitDir2 = Hit.ImpactPoint - GetOwner()->GetActorLocation();
+	HitDir2.Z = 0;
+	if (MoveComp != nullptr)
+	{
+		FVector V2f = V2i - ((M1 + M1) / (M1 + M2)) * FVector::DotProduct((V2i - V1i), HitDir2) / (HitDir2.Size() * HitDir2.Size()) * HitDir2;
+		MoveComp->SetVelocity(V2f * MoveComp->GetElast());
+	}
+
+#pragma region 1D Collision
+	// V1i + V1f = V2i + V2f
+	// 1. V2f = V1i + V1f - V2i
+
+	// Momentum( before collision = after collision )
+	// 2. V1i * M1 + V2i * M2 = (V1f * M1 + V2f * M2) * elast
+
+	// 1 + 2		
+	// V1f = (V1i * (M1 - M2) + V2i * (M2 + M2)) / (M1 + M2)
+	// V2f = (V2i * (M2 - M1) + V1i * (M1 + M1)) / (M1 + M2)
+
+	// Elast
+	//float Elast = 0;
+	//FVector V1f = (Elast * M2 * (V2i - V1i) + M1 * V1i + M2* V2i) / (M1 + M2);
+	//FVector V2f = (Elast * M1 * (V1i - V2i) + M1 * V1i + M2* V2i) / (M1 + M2);
+#pragma endregion
+#pragma region 2D Collision
+//float RadianToDegree = 180 / PI;
+
+		//FVector V1i = Velocity;
+		//float Ang1 = FMath::Atan2(V1i.Y, V1i.X) * RadianToDegree;
+		//float M1 = MassInKilo;
+
+		//UGwangCarMovementComponent* MoveComp = Hit.Actor->FindComponentByClass<UGwangCarMovementComponent>();
+		//FVector V2i = MoveComp != nullptr ? MoveComp->GetVelocity() : Hit.Actor->GetVelocity();
+		//float Ang2 = FMath::Atan2(V2i.Y, V2i.X) * RadianToDegree;
+		//float M2 = 99999;
+		//if (MoveComp != nullptr)
+		//{
+		//	M2 = MoveComp->GetMass();
+		//}
+		//else if (Hit.Actor->IsRootComponentMovable())
+		//{
+		//	M2 = Hit.Component->GetMass();
+		//}
+
+		//FVector ContactDir = (Hit.ImpactPoint - GetOwner()->GetActorLocation()).GetSafeNormal();
+		//float Phi = FMath::Atan2(ContactDir.Y, ContactDir.X) * RadianToDegree;
+
+		//UE_LOG(LogTemp, Warning, TEXT("Ang1 45?: %f"), Ang1);
+		//UE_LOG(LogTemp, Warning, TEXT("Ang2 0?: %f"), Ang2);
+		//UE_LOG(LogTemp, Warning, TEXT("Phi 90?: %f"), Phi);
+
+		//// Rotate
+		//FVector V1xr = V1i * FMath::Cos(Ang1 - Phi);
+		//FVector V1yr = V1i * FMath::Sin(Ang1 - Phi);
+		//FVector V2xr = V2i * FMath::Cos(Ang2 - Phi);
+		//FVector V2yr = V2i * FMath::Sin(Ang2 - Phi);
+
+		//// Calculate
+		//FVector V1fxr = (V1xr * (M1 - M2) + V2xr * (M2 + M2)) / (M1 + M2);
+		//FVector V1fyr = V1yr;
+
+		//// Rotate back
+		//FVector V1fx = V1fxr * FMath::Cos(Phi) + V1fyr * FMath::Cos(Phi + (PI / 2));
+		//FVector V1fy = V1fxr * FMath::Sin(Phi) + V1fyr * FMath::Sin(Phi + (PI / 2));
+
+		//Velocity = V1fx + V1fy;
+#pragma endregion
+}
+
+FVector UGwangCarMovementComponent::GetAirResistance()	// Air Resistance = Speed^2 * DragCoefficient
 {
 	float Speed = Velocity.Size();
 	return -Velocity.GetSafeNormal() * Speed * Speed * DragCoefficient;
 }
 
-FVector UGwangCarMovementComponent::GetRollingResistance()
+FVector UGwangCarMovementComponent::GetRollingResistance()	// Rolling Resistance = NormalForce(Mass*Gravity) * DragCoefficient
 {
 	float Gravity = -GetWorld()->GetGravityZ() / 100;	// 9.81....
 	float NormalForce = MassInKilo * Gravity;	// Normal Force = Mass * Gravity

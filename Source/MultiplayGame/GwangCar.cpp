@@ -10,7 +10,8 @@ AGwangCar::AGwangCar()
 {
 	// Set this pawn to call Tick() every frame.  You can turn this off to improve performance if you don't need it.
 	PrimaryActorTick.bCanEverTick = true;
-	bReplicates = true;
+	SetReplicatingMovement(false);
+	SetReplicates(true);
 
 	MovementComponent = CreateDefaultSubobject<UGwangCarMovementComponent>(TEXT("GwangCarMovement"));
 	MoveReplicationComponent = CreateDefaultSubobject<UGwangCarMoveReplicationComponent>(TEXT("GwangCarMovementReplication"));
@@ -43,11 +44,7 @@ void AGwangCar::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
 
-
-
-
 	DrawDebugString(GetWorld(), FVector(0, 0, 100), UEnum::GetValueAsString(GetLocalRole()), this, FColor::Cyan, DeltaTime);
-
 }
 
 // Called to bind functionality to input

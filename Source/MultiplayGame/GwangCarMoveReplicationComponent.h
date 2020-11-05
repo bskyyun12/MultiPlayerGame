@@ -47,15 +47,25 @@ private:
 
 	UFUNCTION()
 	void OnRep_ServerState();
+	void AutonomousProxy_OnRep_ServerState();
+	void SimulatedProxy_OnRep_ServerState();
 
 	TArray<FVehicleMove> UnacknowledgedMoves;
 	void ClearUnacknowledgedMoves(FVehicleMove LastMove);
+
+	void UpdateServerState(const FVehicleMove& Move);
 
 	UFUNCTION(Server, Reliable, WithValidation)
 	void Server_SendMove(FVehicleMove Move);
 	void Server_SendMove_Implementation(FVehicleMove Move);
 	bool Server_SendMove_Validate(FVehicleMove Move);
 
+	float ClientTimeSinceUpdate;
+	float ClientTimeBetweenLastUpdates;
+	FTransform ClientStartTransform;
+	FVector ClientStartVelocity;
+
+	void ClientTick(float DeltaTime);
 
 	UPROPERTY()
 	UGwangCarMovementComponent* MovementComponent;

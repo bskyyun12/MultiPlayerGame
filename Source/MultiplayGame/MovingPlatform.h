@@ -31,6 +31,15 @@ private:
 	UPROPERTY(EditAnywhere)
 	UStaticMeshComponent* Mesh;
 
+	UPROPERTY(Replicated)
+	float Time;
+
+	UPROPERTY(ReplicatedUsing = OnRep_ReplicatedTranform)
+	FTransform ReplicatedTranform;
+
+	UFUNCTION()
+	void OnRep_ReplicatedTranform();
+
 	UPROPERTY(EditAnywhere)
 	float TravalTime = 1;
 
@@ -39,9 +48,6 @@ private:
 
 	UPROPERTY()
 	FVector StartLocation;
-
-	UPROPERTY()
-	float Time = 0;
 
 	UPROPERTY()
 	int CurrentNumOfTriggers = 0;

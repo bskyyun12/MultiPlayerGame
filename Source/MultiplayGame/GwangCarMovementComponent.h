@@ -42,18 +42,28 @@ public:
 
 	FVector GetVelocity() { return Velocity; }
 	void SetVelocity(FVector InVelocity) { Velocity = InVelocity; }
+
 	void SetThrottle(float Value) { Throttle = Value; }
 	void SetSteeringThrow(float Value) { SteeringThrow = Value; }
 
-	FVehicleMove CreateMove(float DeltaTime);
 	void SimulateMove(const FVehicleMove& Move);
 
+	FVehicleMove GetLastMove() { return LastMove; }
+	float GetElast() { return Elast; }
+
 private:
+	FVehicleMove CreateMove(float DeltaTime);
+
 	FVector GetAirResistance();
 	FVector GetRollingResistance();
 
 	void ApplyRotation(float DeltaTime, float SteeringThrow);
 	void UpdateLocationFromVelocity(float DeltaTime);
+
+	void HandleCollision(FHitResult& Hit);
+
+	UPROPERTY(EditAnywhere, meta = (ToolTip = "0(Inelastic) ~ 1(Elastic)"))
+	float Elast = 1;
 
 	UPROPERTY(EditAnywhere, meta = (ToolTip = "Mass of this vehicle (kg)"))
 	float MassInKilo = 1000;
@@ -74,4 +84,6 @@ private:
 
 	float Throttle;
 	float SteeringThrow;
+
+	FVehicleMove LastMove;
 };

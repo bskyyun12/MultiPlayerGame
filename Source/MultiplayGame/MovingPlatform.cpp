@@ -2,6 +2,7 @@
 
 
 #include "MovingPlatform.h"
+#include "Net\UnrealNetwork.h"
 
 // Sets default values
 AMovingPlatform::AMovingPlatform()
@@ -11,6 +12,9 @@ AMovingPlatform::AMovingPlatform()
 
 	Mesh = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("MeshComponent"));
 	Mesh->AttachTo(RootComponent);
+	
+	SetReplicates(true);
+	SetReplicatingMovement(false);
 }
 
 // Called when the game starts or when spawned
@@ -23,9 +27,15 @@ void AMovingPlatform::BeginPlay()
 
 	if (HasAuthority())
 	{
-		SetReplicates(true);
-		SetReplicateMovement(true);
+		NetUpdateFrequency = 1;	// update frequency from server
 	}
+}
+
+void AMovingPlatform::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
+{
+	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
+	DOREPLIFETIME(AMovingPlatform, Time);
+	DOREPLIFETIME(AMovingPlatform, ReplicatedTranform);
 }
 
 // Called every frame
@@ -35,28 +45,37 @@ void AMovingPlatform::Tick(float DeltaTime)
 
 	if (CurrentNumOfTriggers >= RequiredNumOfTriggers)
 	{
+		#pragma region SmoothStep
+		// SmmothStep
+		//if (FVector::Dist(GetActorLocation(), TargetLocation) < 0.01)
+		//{
+		//	Time = 0;
+		//	FVector TempStartPos = StartLocation;
+		//	StartLocation = TargetLocation;
+		//	TargetLocation = TempStartPos;
+		//}
+		//Time += DeltaTime / TravalTime;
+		//float Alpha = Time * Time * Time * (Time * (Time * 6 - 15) + 10);
+		//FVector NewLocation = FMath::Lerp(StartLocation, TargetLocation, Alpha);
+		//SetActorLocation(NewLocation);
+#pragma endregion
+
 		if (HasAuthority())
 		{
-			// SmmothStep
-			//if (FVector::Dist(GetActorLocation(), TargetLocation) < 0.01)
-			//{
-			//	Time = 0;
-			//	FVector TempStartPos = StartLocation;
-			//	StartLocation = TargetLocation;
-			//	TargetLocation = TempStartPos;
-			//}
-			//Time += DeltaTime / TravalTime;
-			//float Alpha = Time * Time * Time * (Time * (Time * 6 - 15) + 10);
-			//FVector NewLocation = FMath::Lerp(StartLocation, TargetLocation, Alpha);
-			//SetActorLocation(NewLocation);
-
-			// Smooth Infinite
-			Time += DeltaTime / TravalTime;
-			float Alpha = ((-FMath::Cos(PI * Time) + 1) / 2);
-			FVector NewLocation = FMath::Lerp(StartLocation, TargetLocation, Alpha);
-			SetActorLocation(NewLocation);
+			ReplicatedTranform = GetActorTransform(); // Save Server's transform
 		}
+
+		// Smooth Infinite
+		Time += DeltaTime / TravalTime;
+		float Alpha = ((-FMath::Cos(PI * Time) + 1) / 2);
+		FVector NewLocation = FMath::Lerp(StartLocation, TargetLocation, Alpha);
+		SetActorLocation(NewLocation);
 	}
+}
+
+void AMovingPlatform::OnRep_ReplicatedTranform()
+{
+	SetActorTransform(ReplicatedTranform);	// Set server's transform into clients' transform
 }
 
 void AMovingPlatform::OnTriggerActivated()
