@@ -43,6 +43,7 @@ FVehicleMove UGwangCarMovementComponent::CreateMove(float DeltaTime)
 	Move.DeltaTime = DeltaTime;
 	Move.Throttle = Throttle;
 	Move.SteeringThrow = SteeringThrow;
+	Move.Drift = Drift;
 	Move.Time = GetWorld()->TimeSeconds;
 
 	return Move;
@@ -52,29 +53,60 @@ void UGwangCarMovementComponent::SimulateMove(const FVehicleMove& Move)
 {
 	FVector Force = GetOwner()->GetActorForwardVector() * MaxDrivingForce * Move.Throttle;
 	Force += GetAirResistance();	// Air Resistance = Speed^2 * DragCoefficient
-	Force += GetRollingResistance();	// Rolling Resistance = NormalForce(Mass*Gravity) * DragCoefficient
+	Force += GetRollingResistance();	// Rolling Resistance = NormalForce(Mass*Gravity) * RollingResistanceCoefficient
+	Force += GetSideFriction();	// dot(velocity, normalright) * -normalright * mass
 
-	FVector Acceleration = Force / MassInKilo;
+	if (IsVerlet)
+	{
+		UpdateLocationFromVelocity(Move.DeltaTime);
+		FVector NewAcceleration = Force / MassInKilo;
+		Velocity += (Acceleration + NewAcceleration) * (Move.DeltaTime * 0.5);
+		Acceleration = NewAcceleration;
+	}
+	else // Euler
+	{
+		UpdateLocationFromVelocity(Move.DeltaTime);
+		Acceleration = Force / MassInKilo;
+		Velocity += (Acceleration * Move.DeltaTime);
+	}
 
-	Velocity += (Acceleration * Move.DeltaTime);
-
-	ApplyRotation(Move.DeltaTime, Move.SteeringThrow);
-	UpdateLocationFromVelocity(Move.DeltaTime);
+	ApplyRotation(Move.DeltaTime, Move.SteeringThrow, Move.Drift);
 }
 
-void UGwangCarMovementComponent::ApplyRotation(float DeltaTime, float InSteeringThrow)
+void UGwangCarMovementComponent::ApplyRotation(float DeltaTime, float InSteeringThrow, bool InDrift)
 {
-	//float RotationAngle = MaxDegreesPerSec * DeltaTime * SteeringThrow;
 	float DeltaX = FVector::DotProduct(GetOwner()->GetActorForwardVector(), Velocity) * DeltaTime;
-	float RotationAngle = DeltaX / MinTurningRadius * InSteeringThrow;	// dθ = dx / radius
+	float RotationAngle = DeltaX / (InDrift ? MinTurningRadius / 3 : MinTurningRadius) * InSteeringThrow;	// dθ = dx / radius
 	FQuat RotationDelta(GetOwner()->GetActorUpVector(), RotationAngle);
-	Velocity = RotationDelta.RotateVector(Velocity);
+
+	CurrentRotationAngle = FMath::LerpStable(CurrentRotationAngle, RotationAngle, SteerLerp * DeltaTime);
+
+	if (!InDrift)
+	{
+		Velocity = RotationDelta.RotateVector(Velocity);
+	}
+	else
+	{
+		FQuat DriftRotationDelta(GetOwner()->GetActorUpVector(), CurrentRotationAngle);
+		Velocity = DriftRotationDelta.RotateVector(Velocity);
+	}
+
 	GetOwner()->AddActorWorldRotation(RotationDelta, true);
 }
 
 void UGwangCarMovementComponent::UpdateLocationFromVelocity(float DeltaTime)
 {
-	FVector DeltaX = Velocity * DeltaTime * 100; // 100 -> convert meter to centimeter
+	float M2cm = 100; // Meter to centimeter
+	FVector DeltaX;
+
+	if (IsVerlet)
+	{
+		DeltaX = (Velocity * DeltaTime * M2cm) + (Acceleration * DeltaTime * DeltaTime * 0.5);
+	}
+	else // Euler
+	{
+		DeltaX = Velocity * DeltaTime * M2cm;
+	}
 
 	FHitResult Hit;
 	GetOwner()->AddActorWorldOffset(DeltaX, true, &Hit);
@@ -103,7 +135,7 @@ void UGwangCarMovementComponent::HandleCollision(FHitResult& Hit)
 	{
 		M2 = MoveComp->GetMass();
 	}
-	else if (HitActor->IsRootComponentMovable())
+	else if (HitActor->GetRootComponent()->IsSimulatingPhysics() && HitActor->IsRootComponentMovable())
 	{
 		M2 = Hit.Component->GetMass();
 	}
@@ -197,4 +229,16 @@ FVector UGwangCarMovementComponent::GetRollingResistance()	// Rolling Resistance
 	return -Velocity.GetSafeNormal() * RollingResistanceCoefficient * NormalForce;
 }
 
+FVector UGwangCarMovementComponent::GetSideFriction()
+{
+	FVector DotV = GetOwner()->GetActorRightVector() * FVector::DotProduct(Velocity, GetOwner()->GetActorRightVector());
+	FVector SideFriction = GetMass() * -DotV;
+
+	if (SideFriction.Size() > MaxSideFriction * GetMass())
+	{
+		UE_LOG(LogTemp, Warning, TEXT("SideFriction: %f"), SideFriction.Size());
+		SideFriction *= MaxSideFriction * GetMass() / SideFriction.Size();
+	}
+	return SideFriction;
+}
 

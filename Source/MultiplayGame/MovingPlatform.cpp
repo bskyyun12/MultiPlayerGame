@@ -68,8 +68,10 @@ void AMovingPlatform::Tick(float DeltaTime)
 		// Smooth Infinite
 		Time += DeltaTime / TravalTime;
 		float Alpha = ((-FMath::Cos(PI * Time) + 1) / 2);
-		FVector NewLocation = FMath::Lerp(StartLocation, TargetLocation, Alpha);
+		FVector NewLocation = FMath::LerpStable(StartLocation, TargetLocation, Alpha);
 		SetActorLocation(NewLocation);
+		//FHitResult Hit;
+		//AddActorWorldOffset(NewLocation, true, &Hit);
 	}
 }
 

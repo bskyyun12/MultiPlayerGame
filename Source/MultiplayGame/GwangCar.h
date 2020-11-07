@@ -37,9 +37,18 @@ private:
 	void Client_MoveForward(float Value);
 	void Client_MoveRight(float Value);
 
-	UPROPERTY(VisibleAnywhere)
+
+	DECLARE_DYNAMIC_MULTICAST_DELEGATE(FDriftDelegate);
+	UPROPERTY(BlueprintAssignable)
+	FDriftDelegate OnDrift;
+	UPROPERTY(BlueprintAssignable)
+	FDriftDelegate OnStopDrift;
+	void DriftPressed();
+	void DriftReleased();
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, meta = (AllowPrivateAccess = "true"))
 	UGwangCarMovementComponent* MovementComponent;
 
-	UPROPERTY(VisibleAnywhere)
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, meta = (AllowPrivateAccess = "true"))
 	UGwangCarMoveReplicationComponent* MoveReplicationComponent;
 };

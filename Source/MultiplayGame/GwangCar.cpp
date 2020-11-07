@@ -54,6 +54,9 @@ void AGwangCar::SetupPlayerInputComponent(UInputComponent* PlayerInputComponent)
 
 	PlayerInputComponent->BindAxis("MoveForward", this, &AGwangCar::Client_MoveForward);
 	PlayerInputComponent->BindAxis("MoveRight", this, &AGwangCar::Client_MoveRight);
+
+	PlayerInputComponent->BindAction("Drift", IE_Pressed, this, &AGwangCar::DriftPressed);
+	PlayerInputComponent->BindAction("Drift", IE_Released, this, &AGwangCar::DriftReleased);
 }
 
 void AGwangCar::Client_MoveForward(float Value)
@@ -64,4 +67,16 @@ void AGwangCar::Client_MoveForward(float Value)
 void AGwangCar::Client_MoveRight(float Value)
 {
 	MovementComponent->SetSteeringThrow(Value);
+}
+
+void AGwangCar::DriftPressed()
+{
+	OnDrift.Broadcast();
+	MovementComponent->SetDrift(true);
+}
+
+void AGwangCar::DriftReleased()
+{
+	OnStopDrift.Broadcast();
+	MovementComponent->SetDrift(false);
 }
