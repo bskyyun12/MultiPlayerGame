@@ -22,6 +22,11 @@ struct FVehicleMove
 	float DeltaTime;
 	UPROPERTY()
 	float Time;
+
+	bool IsValid() const
+	{
+		return FMath::Abs(Throttle) <= 1 && FMath::Abs(SteeringThrow) <= 1;
+	}
 };
 
 UCLASS( ClassGroup=(Custom), meta=(BlueprintSpawnableComponent) )
@@ -44,6 +49,7 @@ public:
 
 	FVector GetVelocity() { return Velocity; }
 	void SetVelocity(FVector InVelocity) { Velocity = InVelocity; }
+	void AddVelocity(FVector InVelocity) { Velocity += InVelocity; }
 
 	void SetThrottle(float Value) { Throttle = Value; }
 	void SetSteeringThrow(float Value) { SteeringThrow = Value; }

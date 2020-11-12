@@ -24,7 +24,7 @@ void AGwangCar::BeginPlay()
 
 	if (HasAuthority())
 	{
-		NetUpdateFrequency = 1;
+		NetUpdateFrequency = 5;
 	}
 
 	if (!ensure(MovementComponent != nullptr))
@@ -33,18 +33,14 @@ void AGwangCar::BeginPlay()
 	}
 }
 
-//void AGwangCar::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
-//{
-//	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
-//	DOREPLIFETIME(AGwangCar, ServerState);
-//}
 
 // Called every frame
 void AGwangCar::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
 
-	DrawDebugString(GetWorld(), FVector(0, 0, 100), UEnum::GetValueAsString(GetLocalRole()), this, FColor::Cyan, DeltaTime);
+	DrawDebugString(GetWorld(), FVector(0, 0, 120), "RemoteRole: "+UEnum::GetValueAsString(GetRemoteRole()), this, FColor::Cyan, DeltaTime);
+	DrawDebugString(GetWorld(), FVector(0, 0, 100), "LocalRole: " + UEnum::GetValueAsString(GetLocalRole()), this, FColor::Cyan, DeltaTime);
 }
 
 // Called to bind functionality to input

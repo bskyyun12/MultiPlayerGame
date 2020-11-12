@@ -37,7 +37,7 @@ private:
 	void Client_MoveForward(float Value);
 	void Client_MoveRight(float Value);
 
-
+	// Drift
 	DECLARE_DYNAMIC_MULTICAST_DELEGATE(FDriftDelegate);
 	UPROPERTY(BlueprintAssignable)
 	FDriftDelegate OnDrift;

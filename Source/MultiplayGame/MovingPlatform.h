@@ -7,6 +7,15 @@
 #include "Components/StaticMeshComponent.h"
 #include "MovingPlatform.generated.h"
 
+USTRUCT()
+struct FServerPlatForm
+{
+	GENERATED_USTRUCT_BODY()
+
+	UPROPERTY()
+	float ReplicatedTime;
+};
+
 UCLASS()
 class MULTIPLAYGAME_API AMovingPlatform : public AActor
 {
@@ -24,34 +33,32 @@ public:
 	// Called every frame
 	virtual void Tick(float DeltaTime) override;
 
-	void OnTriggerActivated();
-	void OnTriggerDeactivated();
-
 private:
+	UPROPERTY(ReplicatedUsing = OnRep_Server)
+	FServerPlatForm Server;
+	UFUNCTION()
+	void OnRep_Server();
+
 	UPROPERTY(EditAnywhere)
 	UStaticMeshComponent* Mesh;
-
-	UPROPERTY(Replicated)
-	float Time;
-
-	UPROPERTY(ReplicatedUsing = OnRep_ReplicatedTranform)
-	FTransform ReplicatedTranform;
-
-	UFUNCTION()
-	void OnRep_ReplicatedTranform();
-
-	UPROPERTY(EditAnywhere)
-	float TravalTime = 1;
-
-	UPROPERTY(EditAnywhere, meta = (MakeEditWidget = true))
-	FVector TargetLocation;
 
 	UPROPERTY()
 	FVector StartLocation;
 
-	UPROPERTY()
-	int CurrentNumOfTriggers = 0;
+	UPROPERTY(EditAnywhere, meta = (MakeEditWidget = true))
+	FVector TargetLocation;
 
 	UPROPERTY(EditAnywhere)
-	int RequiredNumOfTriggers = 1;
+	float TravalTime = 1;
+
+	UPROPERTY(EditAnywhere)
+	float PushingPower = 10;
+
+	float ClientTime;
+	FHitResult Hit;
+
+private:
+	void SimulateMove(float Time);
+	void HandleCollision();
+
 };

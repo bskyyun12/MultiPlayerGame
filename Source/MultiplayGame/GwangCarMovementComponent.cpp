@@ -30,7 +30,16 @@ void UGwangCarMovementComponent::TickComponent(float DeltaTime, ELevelTick TickT
 
 	// ...
 
-	if (GetOwnerRole() == ROLE_AutonomousProxy || GetOwner()->GetRemoteRole() == ROLE_SimulatedProxy)
+	//if (GetOwnerRole() == ROLE_AutonomousProxy || GetOwner()->GetRemoteRole() == ROLE_SimulatedProxy)
+	//{
+	//	LastMove = CreateMove(DeltaTime);
+	//	SimulateMove(LastMove);
+	//}
+
+	bool IsClient = GetOwnerRole() == ROLE_AutonomousProxy;
+	bool IsHost = GetOwnerRole() == ROLE_Authority && Cast<APawn>(GetOwner())->IsLocallyControlled();
+
+	if (IsClient || IsHost)
 	{
 		LastMove = CreateMove(DeltaTime);
 		SimulateMove(LastMove);

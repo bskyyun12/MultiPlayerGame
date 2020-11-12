@@ -65,6 +65,8 @@ private:
 	FTransform ClientStartTransform;
 	FVector ClientStartVelocity;
 
+	float ClientSimulatedTime;
+
 	void ClientTick(float DeltaTime);
 
 	UPROPERTY()

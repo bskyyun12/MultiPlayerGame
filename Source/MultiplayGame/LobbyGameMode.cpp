@@ -11,7 +11,7 @@ void ALobbyGameMode::PostLogin(APlayerController* NewPlayer)
 	++CurrentPlayersLoggedIn;
 	UE_LOG(LogTemp, Warning, TEXT("CurrentPlayersLoggedIn: %d"), CurrentPlayersLoggedIn);
 
-	if (CurrentPlayersLoggedIn >= NumOfPlayersRequiredToStartGame)
+	if (CurrentPlayersLoggedIn >= 2)
 	{
 		UMultiplayerGameInstance* GameInstance = Cast<UMultiplayerGameInstance>(GetGameInstance());
 		if (GameInstance == nullptr)

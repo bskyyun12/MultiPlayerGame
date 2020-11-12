@@ -22,8 +22,8 @@ private:
 	void StartGame();
 
 private:
-	uint16 StartDelay = 5;
-	uint16 NumOfPlayersRequiredToStartGame = 2;
+	uint16 StartDelay = 10;
+	uint16 NumOfPlayersRequiredToStartGame = 3;
 	uint16 CurrentPlayersLoggedIn = 0;
 
 	const FString& MAINGAME_URL = TEXT("/Game/Maps/MultiplayMap?listen");

@@ -40,18 +40,18 @@ void UGwangCarMoveReplicationComponent::TickComponent(float DeltaTime, ELevelTic
 
 	FVehicleMove LastMove = MovementComponent->GetLastMove();
 
-	if (GetOwnerRole() == ROLE_AutonomousProxy)
+	if (GetOwnerRole() == ROLE_AutonomousProxy)	// Player
 	{
 		UnacknowledgedMoves.Add(LastMove);
-		Server_SendMove(LastMove);
+		Server_SendMove(LastMove);	// Simulate Move + Update Server State
 	}
 
-	if (GetOwnerRole() == ROLE_Authority && GetOwner()->GetRemoteRole() == ROLE_SimulatedProxy)
+	if (GetOwnerRole() == ROLE_Authority && Cast<APawn>(GetOwner())->IsLocallyControlled())	// Host Player
 	{
 		UpdateServerState(LastMove);
 	}
 
-	if (GetOwnerRole() == ROLE_SimulatedProxy)
+	if (GetOwnerRole() == ROLE_SimulatedProxy)	// Other Players
 	{
 		ClientTick(DeltaTime);
 	}
@@ -77,12 +77,26 @@ void UGwangCarMoveReplicationComponent::Server_SendMove_Implementation(FVehicleM
 	{
 		return;
 	}
+	ClientSimulatedTime += Move.DeltaTime;
 	MovementComponent->SimulateMove(Move);
 	UpdateServerState(Move);
 }
 
 bool UGwangCarMoveReplicationComponent::Server_SendMove_Validate(FVehicleMove Move)
 {
+	float ProposedTime = ClientSimulatedTime + Move.DeltaTime;
+	bool ClientNotRunningAhead = ProposedTime < GetWorld()->TimeSeconds;
+	if (!ClientNotRunningAhead)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("Client is running too fast"));
+		return false;
+	}
+
+	if (!Move.IsValid())
+	{
+		UE_LOG(LogTemp, Warning, TEXT("Invalid move"));
+		return false;
+	}
 	return true;
 }
 
@@ -98,7 +112,7 @@ void UGwangCarMoveReplicationComponent::ClientTick(float DeltaTime)
 	//MovementComponent->SimulateMove(ServerState.LastMove);
 	ClientTimeSinceUpdate += DeltaTime;
 
-	if (ClientTimeBetweenLastUpdates < KINDA_SMALL_NUMBER)
+	if (ClientTimeBetweenLastUpdates < KINDA_SMALL_NUMBER || ClientTimeSinceUpdate < KINDA_SMALL_NUMBER)
 	{
 		return;
 	}
@@ -107,7 +121,6 @@ void UGwangCarMoveReplicationComponent::ClientTick(float DeltaTime)
 	{
 		return;
 	}
-
 	
 	// Slope = Derivative = DeltaLocation / DeltaAlpha
 	// Velocity = DeltaLocation / DeltaTime
@@ -124,7 +137,11 @@ void UGwangCarMoveReplicationComponent::ClientTick(float DeltaTime)
 	FVector TargetDerivative = ServerState.Velocity * VelocityToDerivative;
 
 	FVector NewLocation = FMath::CubicInterp(StartLocation, StartDerivative, TargetLocation, TargetDerivative, Alpha);
-	GetOwner()->SetActorLocation(NewLocation);
+	//GetOwner()->SetActorLocation(NewLocation);
+	if (MeshOffsetRoot != nullptr)
+	{
+		MeshOffsetRoot->SetWorldLocation(NewLocation);
+	}	
 
 	FVector NewDerivative = FMath::CubicInterpDerivative(StartLocation, StartDerivative, TargetLocation, TargetDerivative, Alpha);
 	FVector NewVelocity = NewDerivative / VelocityToDerivative;
@@ -133,7 +150,11 @@ void UGwangCarMoveReplicationComponent::ClientTick(float DeltaTime)
 	FQuat StartRotation = ClientStartTransform.GetRotation();
 	FQuat TargetRotation = ServerState.Transform.GetRotation();
 	FQuat NewRotation = FQuat::Slerp(StartRotation, TargetRotation, Alpha);
-	GetOwner()->SetActorRotation(NewRotation);
+	//GetOwner()->SetActorRotation(NewRotation);
+	if (MeshOffsetRoot != nullptr)
+	{
+		MeshOffsetRoot->SetWorldRotation(NewRotation);
+	}
 }
 
 void UGwangCarMoveReplicationComponent::OnRep_ServerState()
@@ -170,12 +191,28 @@ void UGwangCarMoveReplicationComponent::AutonomousProxy_OnRep_ServerState()
 
 void UGwangCarMoveReplicationComponent::SimulatedProxy_OnRep_ServerState()
 {
+	//if (MovementComponent == nullptr)
+	//{
+	//	return;
+	//}
+	//ClientTimeBetweenLastUpdates = ClientTimeSinceUpdate;
+	//ClientTimeSinceUpdate = 0;
+	//ClientStartTransform = GetOwner()->GetActorTransform();
+	//ClientStartVelocity = MovementComponent->GetVelocity();
+
 	if (MovementComponent == nullptr)
 	{
 		return;
 	}
 	ClientTimeBetweenLastUpdates = ClientTimeSinceUpdate;
 	ClientTimeSinceUpdate = 0;
-	ClientStartTransform = GetOwner()->GetActorTransform();
+
+	if (MeshOffsetRoot != nullptr)
+	{
+		ClientStartTransform.SetLocation(MeshOffsetRoot->GetComponentLocation());
+		ClientStartTransform.SetRotation(MeshOffsetRoot->GetComponentQuat());
+	}	
 	ClientStartVelocity = MovementComponent->GetVelocity();
+
+	GetOwner()->SetActorTransform(ServerState.Transform);
 }

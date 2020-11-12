@@ -3,6 +3,7 @@
 
 #include "MovingPlatform.h"
 #include "Net\UnrealNetwork.h"
+#include "GwangCarMovementComponent.h"
 
 // Sets default values
 AMovingPlatform::AMovingPlatform()
@@ -12,7 +13,7 @@ AMovingPlatform::AMovingPlatform()
 
 	Mesh = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("MeshComponent"));
 	Mesh->AttachTo(RootComponent);
-	
+
 	SetReplicates(true);
 	SetReplicatingMovement(false);
 }
@@ -34,8 +35,7 @@ void AMovingPlatform::BeginPlay()
 void AMovingPlatform::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
 {
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
-	DOREPLIFETIME(AMovingPlatform, Time);
-	DOREPLIFETIME(AMovingPlatform, ReplicatedTranform);
+	DOREPLIFETIME(AMovingPlatform, Server);
 }
 
 // Called every frame
@@ -43,50 +43,41 @@ void AMovingPlatform::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
 
-	if (CurrentNumOfTriggers >= RequiredNumOfTriggers)
+	ClientTime += (DeltaTime / TravalTime * (Hit.IsValidBlockingHit() ? -1 : 1));
+	SimulateMove(ClientTime);
+
+	if (HasAuthority())
 	{
-		#pragma region SmoothStep
-		// SmmothStep
-		//if (FVector::Dist(GetActorLocation(), TargetLocation) < 0.01)
-		//{
-		//	Time = 0;
-		//	FVector TempStartPos = StartLocation;
-		//	StartLocation = TargetLocation;
-		//	TargetLocation = TempStartPos;
-		//}
-		//Time += DeltaTime / TravalTime;
-		//float Alpha = Time * Time * Time * (Time * (Time * 6 - 15) + 10);
-		//FVector NewLocation = FMath::Lerp(StartLocation, TargetLocation, Alpha);
-		//SetActorLocation(NewLocation);
-#pragma endregion
-
-		if (HasAuthority())
-		{
-			ReplicatedTranform = GetActorTransform(); // Save Server's transform
-		}
-
-		// Smooth Infinite
-		Time += DeltaTime / TravalTime;
-		float Alpha = ((-FMath::Cos(PI * Time) + 1) / 2);
-		FVector NewLocation = FMath::LerpStable(StartLocation, TargetLocation, Alpha);
-		SetActorLocation(NewLocation);
-		//FHitResult Hit;
-		//AddActorWorldOffset(NewLocation, true, &Hit);
+		// Update Server Variables
+		Server.ReplicatedTime = ClientTime;
 	}
 }
 
-void AMovingPlatform::OnRep_ReplicatedTranform()
+void AMovingPlatform::OnRep_Server()
 {
-	SetActorTransform(ReplicatedTranform);	// Set server's transform into clients' transform
+	ClientTime = Server.ReplicatedTime;
 }
 
-void AMovingPlatform::OnTriggerActivated()
+void AMovingPlatform::SimulateMove(float Time)
 {
-	CurrentNumOfTriggers++;
+	// Smooth Infinite
+	float Alpha = ((-FMath::Cos(PI * Time) + 1) / 2);
+	FVector NewLocation = FMath::LerpStable(StartLocation, TargetLocation, Alpha);
+	SetActorLocation(NewLocation, true, &Hit);
+	HandleCollision();
 }
 
-void AMovingPlatform::OnTriggerDeactivated()
+void AMovingPlatform::HandleCollision()
 {
-	CurrentNumOfTriggers = FMath::Max(0, --CurrentNumOfTriggers);
+	if (Hit.IsValidBlockingHit())
+	{
+		UGwangCarMovementComponent* MovementComponent = Hit.GetActor()->FindComponentByClass<UGwangCarMovementComponent>();
+		if (MovementComponent != nullptr)
+		{
+			FVector PushDir = Hit.ImpactNormal;
+			PushDir.Z = 0;
+			MovementComponent->AddVelocity(PushDir * PushingPower);
+		}
+	}
 }
 
